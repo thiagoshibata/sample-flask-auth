@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from models.user import User
 from database import db
-from flask_login import LoginManager, login_user, current_user
+from flask_login import LoginManager, login_user, current_user, logout_user,login_required
 
 app = Flask(__name__)
 # configurar uma chave secreta
@@ -38,9 +38,14 @@ def login():
       return jsonify({"message":"Usuário ou senha inválidos"})
   return jsonify({"message":"Credenciais inválidas"}), 400
 
-@app.route("/hello-world", methods=['GET'])
-def hello_world():
-  return "Hellor world"
+@app.route('/logout', methods=['GET'])
+@login_required # Somente usuários autenticados. || Protegida
+def logout():
+  
+  logout_user()
+  return jsonify({"message":"Logout realizado com sucesso"})
+
+
 
 if __name__ == '__main__':
   app.run(debug=True)
