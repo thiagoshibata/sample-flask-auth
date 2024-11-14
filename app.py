@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
 from models.user import User
 from database import db
-from flask_login import LoginManager
+from flask_login import LoginManager, login_user, current_user
 
 app = Flask(__name__)
 # configurar uma chave secreta
@@ -12,9 +12,13 @@ login_manager = LoginManager()
 db.init_app(app)
 login_manager.init_app(app)
 
-# construir view login
+# construir view login (rota de login)
+login_manager.login_view = 'login'
 
-# session -> conexão ativa
+# recuperando o registro do usuário no banco de dados.
+@login_manager.user_loader
+def load_user(user_id):
+  return User.query.get(user_id)
 
 @app.route('/login', methods=['POST'])
 def login():
@@ -23,8 +27,15 @@ def login():
   password = data.get("password")
 
   if username and password:
-    # Login - procurar o usuário 
-    pass
+    # Login - procurando usuário no banco de dados
+    user = User.query.filter_by(username=username).first()
+
+    if user and user.password == password:
+      login_user(user)
+      print(current_user.is_authenticated)
+      return jsonify({"message":"Autenticação realizada com sucesso!"}),200
+    else:
+      return jsonify({"message":"Usuário ou senha inválidos"})
   return jsonify({"message":"Credenciais inválidas"}), 400
 
 @app.route("/hello-world", methods=['GET'])
