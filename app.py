@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify
 from models.user import User
 from database import db
 from flask_login import LoginManager, login_user, current_user, logout_user,login_required
+import bcrypt
 
 app = Flask(__name__)
 # configurar uma chave secreta
@@ -31,9 +32,8 @@ def login():
     # Login - procurando usuário no banco de dados
     user = User.query.filter_by(username=username).first()
 
-    if user and user.password == password:
+    if user and bcrypt.checkpw(str.encode(password), str.encode(user.password)):
       login_user(user)
-      print(current_user.is_authenticated)
       return jsonify({"message":"Autenticação realizada com sucesso!"}),200
     else:
       return jsonify({"message":"Usuário ou senha inválidos"})
@@ -57,7 +57,8 @@ def create_user():
   if username and password:
     user_exists = User.query.filter_by(username=username).first()
     if not user_exists:
-      user = User(username=username, password=password)
+      hashed_password = bcrypt.hashpw(str.encode(password), bcrypt.gensalt())
+      user = User(username=username, password=hashed_password, role='user')
       db.session.add(user)
       db.session.commit()
       return jsonify({"message":"Usuário cadastrado com sucesso"})
@@ -82,6 +83,9 @@ def update_user(id_user):
   data = request.json
   user = User.query.get(id_user)
 
+  if id_user != current_user.id and current_user.role == "user":
+    return jsonify({"message":"Operação não autorizada."}), 403
+
   if user and data.get('password'):
     user.password = data.get('password')
     db.session.commit()
@@ -90,10 +94,14 @@ def update_user(id_user):
     
   return jsonify({"message":"Usuário não encontrado"}), 404
 
+# DELETE
 @app.route('/user/<int:id_user>', methods=['DELETE'])
 @login_required
 def delete_user(id_user):
   user = User.query.get(id_user)
+
+  if current_user.role != 'admin':
+    return jsonify({"message":"Operação não autorizada"}), 403
 
   # Não permite que o sistema exclua o usuário que está logado.
   if id_user == current_user.id:
